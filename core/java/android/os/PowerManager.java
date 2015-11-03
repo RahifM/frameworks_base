@@ -1552,4 +1552,21 @@ public final class PowerManager {
         return mContext.getResources().getInteger(
                 com.android.internal.R.integer.config_buttonBrightnessSettingDefault);
     }
+
+   /*
+     * Boost the CPU. Boosts the cpu for the given duration in microseconds.
+     *
+     * @param duration in microseconds to boost the CPU
+     *
+     * @hide
+     */
+    public void cpuBoost(int duration)
+    {
+        try {
+            if (mService != null) {
+                mService.cpuBoost(duration);
+            }
+        } catch (RemoteException e) {
+        }
+    }
 }
