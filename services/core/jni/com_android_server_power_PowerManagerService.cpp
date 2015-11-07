@@ -194,15 +194,10 @@ static void nativeSetAutoSuspend(JNIEnv* /* env */, jclass /* clazz */, jboolean
 }
 
 static void nativeSendPowerHint(JNIEnv *env, jclass clazz, jint hintId, jint data) {
-    std::lock_guard<std::mutex> lock(gPowerHalMutex);
-    if (getPowerHal()) {
-        Return<void> ret;
-        if (gPowerHalV1_1 != nullptr) {
-            ret =  gPowerHalV1_1->powerHintAsync((PowerHint)hintId, data);
-        } else {
-            ret =  gPowerHalV1_0->powerHint((PowerHint)hintId, data);
-        }
-        processReturn(ret, "powerHint");
+    int data_param = data;
+
+    if (gPowerModule && gPowerModule->powerHint) {
+        gPowerModule->powerHint(gPowerModule, (power_hint_t)hintId, &data_param);
     }
 }
 
