@@ -78,18 +78,11 @@ static bool checkAndClearExceptionFromCallback(JNIEnv* env, const char* methodNa
     return false;
 }
 
-// Check validity of current handle to the power HAL service, and call getService() if necessary.
-// The caller must be holding gPowerHalMutex.
-bool getPowerHal() {
-    if (gPowerHalExists && gPowerHalV1_0 == nullptr) {
-        gPowerHalV1_0 = android::hardware::power::V1_0::IPower::getService();
-        if (gPowerHalV1_0 != nullptr) {
-            gPowerHalV1_1 =  android::hardware::power::V1_1::IPower::castFrom(gPowerHalV1_0);
-            ALOGI("Loaded power HAL service");
-        } else {
-            ALOGI("Couldn't load power HAL service");
-            gPowerHalExists = false;
-        }
+void android_server_PowerManagerService_userActivity(nsecs_t eventTime, int32_t eventType) {
+    // Tell the power HAL when user activity occurs.
+    if (gPowerModule && gPowerModule->powerHint) {
+        int data_param = 0;
+        gPowerModule->powerHint(gPowerModule, POWER_HINT_INTERACTION, &data_param);
     }
     return gPowerHalV1_0 != nullptr;
 }
