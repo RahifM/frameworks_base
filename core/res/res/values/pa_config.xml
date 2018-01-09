@@ -16,6 +16,7 @@
 */
 -->
 <resources>
+
     <!-- The list of components which should be automatically disabled. -->
     <string-array name="config_disabledComponents" translatable="false">
     </string-array>
@@ -29,5 +30,8 @@
 
     <!-- sRGB sysfs path -->
     <string name="config_srgb_path"></string>
+
+    <!-- BoostFramework -->
+    <java-symbol type="bool" name="config_isBoostFrameworkPresent" />
 
 </resources>

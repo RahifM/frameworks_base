@@ -3096,14 +3096,16 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
 
     void acquireAppLaunchPerfLock(String packageName) {
        /* Acquire perf lock during new app launch */
-       if (mPerfBoost == null) {
+       if (mPerfBoost == null && mService.mContext.getResources().getBoolean
+                        (com.android.internal.R.bool.config_isBoostFrameworkPresent)) {
            mPerfBoost = new BoostFramework();
        }
        if (mPerfBoost != null) {
            mPerfBoost.perfHint(BoostFramework.VENDOR_HINT_FIRST_LAUNCH_BOOST, packageName, -1, BoostFramework.Launch.BOOST_V1);
            mPerfSendTapHint = true;
        }
-       if (mPerfPack == null) {
+       if (mPerfPack == null && mService.mContext.getResources().getBoolean
+                        (com.android.internal.R.bool.config_isBoostFrameworkPresent)) {
            mPerfPack = new BoostFramework();
        }
        if (mPerfPack != null) {
