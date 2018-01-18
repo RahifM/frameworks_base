@@ -48,11 +48,11 @@ public class BoostFramework {
 
 /** @hide */
     private static boolean mIsLoaded = false;
-    private static Class<?> mPerfClass = null;
     private static Method mAcquireFunc = null;
     private static Method mPerfHintFunc = null;
     private static Method mReleaseFunc = null;
     private static Method mReleaseHandlerFunc = null;
+    private static Constructor<Class> mConstructor = null;
 
 /** @hide */
     private Object mPerf = null;
@@ -83,19 +83,25 @@ public class BoostFramework {
         synchronized(BoostFramework.class) {
             if (mIsLoaded == false) {
                 try {
-                    mPerfClass = Class.forName(PERFORMANCE_CLASS);
+                    Class perfClass;
+                    PathClassLoader perfClassLoader;
+
+                    perfClassLoader = new PathClassLoader(PERFORMANCE_JAR,
+                                      ClassLoader.getSystemClassLoader());
+                    perfClass = perfClassLoader.loadClass(PERFORMANCE_CLASS);
+                    mConstructor = perfClass.getConstructor();
 
                     Class[] argClasses = new Class[] {int.class, int[].class};
-                    mAcquireFunc = mPerfClass.getMethod("perfLockAcquire", argClasses);
+                    mAcquireFunc =  perfClass.getDeclaredMethod("perfLockAcquire", argClasses);
 
                     argClasses = new Class[] {int.class, String.class, int.class, int.class};
-                    mPerfHintFunc =  mPerfClass.getMethod("perfHint", argClasses);
+                    mPerfHintFunc =  perfClass.getDeclaredMethod("perfHint", argClasses);
 
                     argClasses = new Class[] {};
-                    mReleaseFunc =  mPerfClass.getMethod("perfLockRelease", argClasses);
+                    mReleaseFunc =  perfClass.getDeclaredMethod("perfLockRelease", argClasses);
 
                     argClasses = new Class[] {int.class};
-                    mReleaseHandlerFunc =  mPerfClass.getDeclaredMethod("perfLockReleaseHandler", argClasses);
+                    mReleaseHandlerFunc =  perfClass.getDeclaredMethod("perfLockReleaseHandler", argClasses);
 
                     mIsLoaded = true;
                 }
@@ -106,8 +112,8 @@ public class BoostFramework {
         }
 
         try {
-            if (mPerfClass != null) {
-                mPerf = mPerfClass.newInstance();
+            if (mConstructor != null) {
+                mPerf = mConstructor.newInstance();
             }
         }
         catch(Exception e) {
