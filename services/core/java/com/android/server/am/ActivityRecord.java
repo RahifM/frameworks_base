@@ -180,7 +180,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import android.util.BoostFramework;
 
 /**
  * An entry in the history stack, representing an activity.
@@ -352,8 +351,6 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
     // directly affects the configuration. We should probably move this into that class and have it
     // handle calculating override configuration from the bounds.
     private final Rect mBounds = new Rect();
-
-    public static BoostFramework mPerfFirstDraw = null;
 
     /**
      * Temp configs used in {@link #ensureActivityConfigurationLocked(int, boolean)}
@@ -1939,12 +1936,6 @@ final class ActivityRecord extends ConfigurationContainer implements AppWindowCo
             mPerf_iop.perfIOPrefetchStart(app.pid, packageName, codePath);
         }
         mStackSupervisor.reportActivityLaunchedLocked(false, this, thisTime, totalTime);
-        if (mPerfFirstDraw == null) {
-            mPerfFirstDraw = new BoostFramework();
-        }
-        if (mPerfFirstDraw != null) {
-            mPerfFirstDraw.perfHint(BoostFramework.VENDOR_HINT_FIRST_DRAW, info.packageName, (int)thisTime, BoostFramework.Draw.EVENT_TYPE_V1);
-        }
         if (totalTime > 0) {
             //service.mUsageStatsService.noteLaunchTime(realActivity, (int)totalTime);
         }
