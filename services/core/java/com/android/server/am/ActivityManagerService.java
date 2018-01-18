@@ -20,7 +20,6 @@ import static android.Manifest.permission.CHANGE_CONFIGURATION;
 import static android.Manifest.permission.CHANGE_DEVICE_IDLE_TEMP_WHITELIST;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
-import static android.Manifest.permission.INTERNAL_SYSTEM_WINDOW;
 import static android.Manifest.permission.MANAGE_ACTIVITY_STACKS;
 import static android.Manifest.permission.READ_FRAME_BUFFER;
 import static android.Manifest.permission.START_TASKS_FROM_RECENTS;
@@ -10321,7 +10320,7 @@ public class ActivityManagerService extends IActivityManager.Stub
 
     @Override
     public void moveStackToDisplay(int stackId, int displayId) {
-        enforceCallingPermission(INTERNAL_SYSTEM_WINDOW, "moveStackToDisplay()");
+        enforceCallingPermission(MANAGE_ACTIVITY_STACKS, "moveStackToDisplay()");
 
         synchronized (this) {
             final long ident = Binder.clearCallingIdentity();
