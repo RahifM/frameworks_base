@@ -64,7 +64,6 @@ public class SystemGesturesPointerEventListener implements PointerEventListener 
     private boolean mDebugFireable;
     private boolean mMouseHoveringAtEdge;
     private long mLastFlingTime;
-    private boolean mScrollFired;
 
     public SystemGesturesPointerEventListener(Context context, Callbacks callbacks) {
         mContext = context;
@@ -98,7 +97,6 @@ public class SystemGesturesPointerEventListener implements PointerEventListener 
             case MotionEvent.ACTION_DOWN:
                 mSwipeFireable = true;
                 mDebugFireable = true;
-                mScrollFired = false;
                 mDownPointers = 0;
                 captureDown(event, 0);
                 if (mMouseHoveringAtEdge) {
@@ -155,9 +153,6 @@ public class SystemGesturesPointerEventListener implements PointerEventListener 
             case MotionEvent.ACTION_CANCEL:
                 mSwipeFireable = false;
                 mDebugFireable = false;
-                if (mScrollFired)
-                    mCallbacks.onScroll(false);
-                mScrollFired = false;
                 mCallbacks.onUpOrCancel();
                 break;
             default:
@@ -273,15 +268,6 @@ public class SystemGesturesPointerEventListener implements PointerEventListener 
             mCallbacks.onFling(duration);
             return true;
         }
-        @Override
-        public boolean onScroll(MotionEvent e1, MotionEvent e2,
-                                   float distanceX, float distanceY) {
-            if (!mScrollFired) {
-                mCallbacks.onScroll(true);
-                mScrollFired = true;
-            }
-            return true;
-        }
     }
 
     interface Callbacks {
@@ -290,7 +276,6 @@ public class SystemGesturesPointerEventListener implements PointerEventListener 
         void onSwipeFromRight();
         void onSwipeFromLeft();
         void onFling(int durationMs);
-        void onScroll(boolean started);
         void onDown();
         void onUpOrCancel();
         void onMouseHoverAtTop();
