@@ -115,7 +115,6 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.service.voice.IVoiceInteractionSession;
-import android.text.TextUtils;
 import android.util.EventLog;
 import android.util.Slog;
 
@@ -125,10 +124,7 @@ import com.android.server.am.ActivityStackSupervisor.PendingActivityLaunch;
 import com.android.server.pm.InstantAppResolver;
 import com.android.server.wm.WindowManagerService;
 
-import java.io.PrintWriter;
-import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 
 /**
  * Controller for interpreting how and then launching activities.
@@ -193,17 +189,9 @@ class ActivityStarter {
     private boolean mUsingVr2dDisplay;
 
     // Last home activity record we attempted to start
-    private final ActivityRecord[] mLastHomeActivityStartRecord = new ActivityRecord[1];
+    final ActivityRecord[] mLastHomeActivityStartRecord = new ActivityRecord[1];
     // The result of the last home activity we attempted to start.
-    private int mLastHomeActivityStartResult;
-    // Last activity record we attempted to start
-    private final ActivityRecord[] mLastStartActivityRecord = new ActivityRecord[1];
-    // The result of the last activity we attempted to start.
-    private int mLastStartActivityResult;
-    // Time in milli seconds we attempted to start the last activity.
-    private long mLastStartActivityTimeMs;
-    // The reason we were trying to start the last activity
-    private String mLastStartReason;
+    int mLastHomeActivityStartResult;
 
     private void reset() {
         mStartActivity = null;
@@ -253,37 +241,7 @@ class ActivityStarter {
         mUsingVr2dDisplay = false;
     }
 
-    int startActivityLocked(IApplicationThread caller, Intent intent, Intent ephemeralIntent,
-            String resolvedType, ActivityInfo aInfo, ResolveInfo rInfo,
-            IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,
-            IBinder resultTo, String resultWho, int requestCode, int callingPid, int callingUid,
-            String callingPackage, int realCallingPid, int realCallingUid, int startFlags,
-            ActivityOptions options, boolean ignoreTargetSecurity, boolean componentSpecified,
-            ActivityRecord[] outActivity, ActivityStackSupervisor.ActivityContainer container,
-            TaskRecord inTask, String reason) {
-
-        if (TextUtils.isEmpty(reason)) {
-            throw new IllegalArgumentException("Need to specify a reason.");
-        }
-        mLastStartReason = reason;
-        mLastStartActivityTimeMs = System.currentTimeMillis();
-        mLastStartActivityRecord[0] = null;
-
-        mLastStartActivityResult = startActivity(caller, intent, ephemeralIntent, resolvedType,
-                aInfo, rInfo, voiceSession, voiceInteractor, resultTo, resultWho, requestCode,
-                callingPid, callingUid, callingPackage, realCallingPid, realCallingUid, startFlags,
-                options, ignoreTargetSecurity, componentSpecified, mLastStartActivityRecord,
-                container, inTask);
-
-        if (outActivity != null) {
-            // mLastStartActivityRecord[0] is set in the call to startActivity above.
-            outActivity[0] = mLastStartActivityRecord[0];
-        }
-        return mLastStartActivityResult;
-    }
-
-    /** DO NOT call this method directly. Use {@link #startActivityLocked} instead. */
-    private int startActivity(IApplicationThread caller, Intent intent, Intent ephemeralIntent,
+    final int startActivityLocked(IApplicationThread caller, Intent intent, Intent ephemeralIntent,
             String resolvedType, ActivityInfo aInfo, ResolveInfo rInfo,
             IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,
             IBinder resultTo, String resultWho, int requestCode, int callingPid, int callingUid,
@@ -646,7 +604,7 @@ class ActivityStarter {
                 null /*callingPackage*/, 0 /*realCallingPid*/, 0 /*realCallingUid*/,
                 0 /*startFlags*/, null /*options*/, false /*ignoreTargetSecurity*/,
                 false /*componentSpecified*/, mLastHomeActivityStartRecord /*outActivity*/,
-                null /*container*/, null /*inTask*/, "startHomeActivity: " + reason);
+                null /*container*/, null /*inTask*/);
         if (mSupervisor.inResumeTopActivity) {
             // If we are in resume section already, home activity will be initialized, but not
             // resumed (to avoid recursive resume) and will stay that way until something pokes it
@@ -671,7 +629,7 @@ class ActivityStarter {
             IBinder resultTo, String resultWho, int requestCode, int startFlags,
             ProfilerInfo profilerInfo, WaitResult outResult,
             Configuration globalConfig, Bundle bOptions, boolean ignoreTargetSecurity, int userId,
-            IActivityContainer iContainer, TaskRecord inTask, String reason) {
+            IActivityContainer iContainer, TaskRecord inTask) {
         // Refuse possible leaked file descriptors
         if (intent != null && intent.hasFileDescriptors()) {
             throw new IllegalArgumentException("File descriptors passed in Intent");
@@ -826,7 +784,7 @@ class ActivityStarter {
                     resultTo, resultWho, requestCode, callingPid,
                     callingUid, callingPackage, realCallingPid, realCallingUid, startFlags,
                     options, ignoreTargetSecurity, componentSpecified, outRecord, container,
-                    inTask, reason);
+                    inTask);
 
             Binder.restoreCallingIdentity(origId);
 
@@ -889,7 +847,7 @@ class ActivityStarter {
 
     final int startActivities(IApplicationThread caller, int callingUid, String callingPackage,
             Intent[] intents, String[] resolvedTypes, IBinder resultTo,
-            Bundle bOptions, int userId, String reason) {
+            Bundle bOptions, int userId) {
         if (intents == null) {
             throw new NullPointerException("intents is null");
         }
@@ -951,7 +909,7 @@ class ActivityStarter {
                             resolvedTypes[i], aInfo, null /*rInfo*/, null, null, resultTo, null, -1,
                             callingPid, callingUid, callingPackage,
                             realCallingPid, realCallingUid, 0,
-                            options, false, componentSpecified, outActivity, null, null, reason);
+                            options, false, componentSpecified, outActivity, null, null);
                     if (res < 0) {
                         return res;
                     }
@@ -2302,41 +2260,5 @@ class ActivityStarter {
             }
         }
         return didSomething;
-    }
-
-    void dump(PrintWriter pw, String prefix) {
-        pw.println(prefix + "ActivityStarter:");
-        prefix = prefix + "  ";
-
-        pw.println(prefix + "mLastStartReason=" + mLastStartReason);
-        pw.println(prefix + "mLastStartActivityTimeMs="
-                + DateFormat.getDateTimeInstance().format(new Date(mLastStartActivityTimeMs)));
-        pw.println(prefix + "mLastStartActivityResult=" + mLastStartActivityResult);
-        ActivityRecord r = mLastStartActivityRecord[0];
-        if (r != null) {
-            pw.println(prefix + "mLastStartActivityRecord:");
-            r.dump(pw, prefix + " ");
-        }
-        pw.println(prefix + "mLastHomeActivityStartResult=" + mLastHomeActivityStartResult);
-        r = mLastHomeActivityStartRecord[0];
-        if (r != null) {
-            pw.println(prefix + "mLastHomeActivityStartRecord:");
-            r.dump(pw, prefix + " ");
-        }
-        if (mStartActivity != null) {
-            pw.println(prefix + "mStartActivity:");
-            mStartActivity.dump(pw, prefix + " ");
-        }
-        if (mIntent != null) {
-            pw.println(prefix + "mIntent=" + mIntent);
-        }
-        if (mOptions != null) {
-            pw.println(prefix + "mOptions=" + mOptions);
-        }
-        pw.println(prefix + "mLaunchSingleTop=" + mLaunchSingleTop
-                + " mLaunchSingleInstance=" + mLaunchSingleInstance
-                + " mLaunchSingleTask=" + mLaunchSingleTask
-                + " mLaunchFlags=0x" + Integer.toHexString(mLaunchFlags)
-                + " mDoResume=" + mDoResume + " mAddingToTask=" + mAddingToTask);
     }
 }
