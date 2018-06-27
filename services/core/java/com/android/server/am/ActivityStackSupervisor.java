@@ -615,7 +615,7 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
     public ActivityStackSupervisor(ActivityManagerService service, Looper looper) {
         mService = service;
         mHandler = new ActivityStackSupervisorHandler(looper);
-        mActivityMetricsLogger = new ActivityMetricsLogger(this, mService.mContext);
+        mActivityMetricsLogger = new ActivityMetricsLogger(this, mService.mContext, looper);
         mKeyguardController = new KeyguardController(service, this);
     }
 
@@ -3096,13 +3096,6 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
 
     void acquireAppLaunchPerfLock(String packageName) {
        /* Acquire perf lock during new app launch */
-       if (mPerfPack == null) {
-           mPerfPack = new BoostFramework();
-       }
-       if (mPerfPack != null) {
-           mPerfPack.perfHint(BoostFramework.VENDOR_HINT_FIRST_LAUNCH_BOOST, packageName, -1, BoostFramework.Launch.BOOST_V2);
-       }
-
        if (mPerfBoost == null) {
            mPerfBoost = new BoostFramework();
        }
@@ -3110,6 +3103,13 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
            mPerfBoost.perfHint(BoostFramework.VENDOR_HINT_FIRST_LAUNCH_BOOST, packageName, -1, BoostFramework.Launch.BOOST_V1);
            mPerfSendTapHint = true;
        }
+       if (mPerfPack == null) {
+           mPerfPack = new BoostFramework();
+       }
+       if (mPerfPack != null) {
+           mPerfPack.perfHint(BoostFramework.VENDOR_HINT_FIRST_LAUNCH_BOOST, packageName, -1, BoostFramework.Launch.BOOST_V2);
+       }
+
        // Start IOP
        if (mPerfIop == null) {
            mPerfIop = new BoostFramework();
@@ -4900,9 +4900,13 @@ public class ActivityStackSupervisor extends ConfigurationContainer implements D
                 mService.mActivityStarter.sendPowerHintForLaunchStartIfNeeded(true /* forceSend */,
                         targetActivity);
                 mActivityMetricsLogger.notifyActivityLaunching();
-                mService.moveTaskToFrontLocked(task.taskId, 0, bOptions, true /* fromRecents */);
-                mActivityMetricsLogger.notifyActivityLaunched(ActivityManager.START_TASK_TO_FRONT,
-                        targetActivity);
+                try {
+                    mService.moveTaskToFrontLocked(task.taskId, 0, bOptions,
+                            true /* fromRecents */);
+                } finally {
+                    mActivityMetricsLogger.notifyActivityLaunched(START_TASK_TO_FRONT,
+                            targetActivity);
+                }
 
                 // If we are launching the task in the docked stack, put it into resizing mode so
                 // the window renders full-screen with the background filling the void. Also only
