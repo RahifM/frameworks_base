@@ -39,9 +39,6 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.hardware.display.DisplayManager;
-import android.os.Build;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.SystemProperties;
 import android.provider.Settings.Secure;
 import android.support.annotation.VisibleForTesting;
@@ -127,12 +124,8 @@ public class ScreenDecorations extends SystemUI implements Tunable {
 
         int padding = mContext.getResources().getDimensionPixelSize(
                 R.dimen.rounded_corner_content_padding);
-        int padding_alt = mContext.getResources().getDimensionPixelSize(
-                R.dimen.rounded_corner_content_padding_alt);
-        if (padding != 0 && Build.PRODUCT.equals("taimen")) {
+        if (padding != 0) {
             setupPadding(padding);
-        } else {
-            setupPadding(padding_alt);
         }
 
         mDisplayListener = new DisplayManager.DisplayListener() {
