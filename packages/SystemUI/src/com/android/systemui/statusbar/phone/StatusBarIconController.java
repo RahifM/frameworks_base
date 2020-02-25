@@ -317,8 +317,7 @@ public interface StatusBarIconController {
 
         private NetworkTrafficSB onCreateNetworkTraffic(String slot) {
             NetworkTrafficSB view = new NetworkTrafficSB(mContext);
-            view.setPadding(2, 0, 2, 0);
-            view.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+            view.setPadding(4, 0, 4, 0);
             return view;
         }
 
@@ -363,8 +362,10 @@ public interface StatusBarIconController {
         }
 
         public void onSetIcon(int viewIndex, StatusBarIcon icon) {
-            StatusBarIconView view = (StatusBarIconView) mGroup.getChildAt(viewIndex);
-            view.set(icon);
+            View view = mGroup.getChildAt(viewIndex);
+            if (view instanceof StatusBarIconView) {
+                ((StatusBarIconView) view).set(icon);
+            }
         }
 
         public void onSetIconHolder(int viewIndex, StatusBarIconHolder holder) {
@@ -433,6 +434,22 @@ public interface StatusBarIconController {
 
         protected DemoStatusIcons createDemoStatusIcons() {
             return new DemoStatusIcons((LinearLayout) mGroup, mIconSize);
+        }
+
+        public void onPanelExpanded(boolean isExpanded) {
+            for (int i = 0; i < mGroup.getChildCount(); i++) {
+                if (mGroup.getChildAt(i) instanceof NetworkTrafficSB) {
+                    ((NetworkTrafficSB)mGroup.getChildAt(i)).onPanelExpanded(isExpanded);
+                }
+            }
+        }
+
+        public void setKeyguardShowing(boolean showing) {
+            for (int i = 0; i < mGroup.getChildCount(); i++) {
+                if (mGroup.getChildAt(i) instanceof NetworkTrafficSB) {
+                    ((NetworkTrafficSB)mGroup.getChildAt(i)).setKeyguardShowing(showing);
+                }
+            }
         }
     }
 }
