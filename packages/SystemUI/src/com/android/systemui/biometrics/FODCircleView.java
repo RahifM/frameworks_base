@@ -28,6 +28,7 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.graphics.Point;
+import android.hardware.biometrics.BiometricConstants;
 import android.hardware.biometrics.BiometricSourceType;
 import android.hardware.display.DisplayManager;
 import android.os.Handler;
@@ -79,6 +80,8 @@ public class FODCircleView extends ImageView {
         new int[]{255, 0}
     };
 
+    private static final int FADE_ANIM_DURATION = 250;
+
     private final int mPositionX;
     private final int mPositionY;
     private final int mSize;
@@ -99,16 +102,23 @@ public class FODCircleView extends ImageView {
     private int mDreamingOffsetY;
 
     private int mCurrentBrightness;
+    private int mColor;
+    private int mColorBackground;
 
+    private boolean mFading;
     private boolean mIsBouncer;
     private boolean mIsDreaming;
     private boolean mIsCircleShowing;
+    private boolean mCanUnlockWithFp;
+    private boolean mIsShowing = true;
+    private boolean mFpDisabled;
 
     private Handler mHandler;
 
     private final ImageView mPressedView;
 
     private LockPatternUtils mLockPatternUtils;
+    private FODAnimation mFODAnimation;
 
     private Timer mBurnInProtectionTimer;
 
@@ -118,7 +128,7 @@ public class FODCircleView extends ImageView {
         @Override
         public void onDreamingStateChanged(boolean dreaming) {
             mIsDreaming = dreaming;
-            updateAlpha();
+            setAlpha(getFodAlpha());
 
             if (dreaming) {
                 mBurnInProtectionTimer = new Timer();
@@ -132,9 +142,19 @@ public class FODCircleView extends ImageView {
         }
 
         @Override
+        public void onKeyguardVisibilityChanged(boolean showing) {
+            if (!showing) {
+                hide();
+            }
+            if (mFODAnimation != null) {
+                mFODAnimation.setAnimationKeyguard(showing);
+            }
+        }
+
+        @Override
         public void onKeyguardBouncerChanged(boolean isBouncer) {
             mIsBouncer = isBouncer;
-            if (mUpdateMonitor.isFingerprintDetectionRunning()) {
+            if (mUpdateMonitor.isFingerprintDetectionRunning() || mFpDisabled) {
                 if (isPinOrPattern(mUpdateMonitor.getCurrentUser()) || !isBouncer) {
                     show();
                 } else {
@@ -151,9 +171,10 @@ public class FODCircleView extends ImageView {
             super.onBiometricRunningStateChanged(running, biometricSourceType);
             if (biometricSourceType == BiometricSourceType.FINGERPRINT){
                 if (running) {
-                    show();
-                } else {
-                    hide();
+                    mHandler.postDelayed(() -> {
+                        mFpDisabled = false;
+                        show();
+                    }, mFpDisabled ? 50 : 0);
                 }
             }
         }
@@ -169,10 +190,55 @@ public class FODCircleView extends ImageView {
                 show();
             }
         }
+
+        @Override
+        public void onBiometricError(int msgId, String helpString,
+                BiometricSourceType biometricSourceType) {
+            if (biometricSourceType == BiometricSourceType.FINGERPRINT
+                    && (msgId == BiometricConstants.BIOMETRIC_ERROR_LOCKOUT
+                    || msgId == BiometricConstants.BIOMETRIC_ERROR_LOCKOUT_PERMANENT)) {
+                mHandler.removeCallbacksAndMessages(null);
+                mFpDisabled = true;
+                show();
+            }
+        }
+
+        @Override
+        public void onBiometricAuthenticated(int userId,
+                BiometricSourceType biometricSourceType) {
+            if (biometricSourceType == BiometricSourceType.FINGERPRINT) {
+                hide();
+            }
+        }
+
+        @Override
+        public void onStrongAuthStateChanged(int userId) {
+            mCanUnlockWithFp = canUnlockWithFp();
+            setAlpha(getFodAlpha());
+        }
+
+        @Override
+        public void onBiometricHelp(int msgId, String helpString,
+                BiometricSourceType biometricSourceType) {
+            if (msgId == -1) { // Auth error
+                hideCircle();
+                mHandler.post(() -> mFODAnimation.hideFODanimation());
+            }
+        }
     };
+
+    private boolean canUnlockWithFp() {
+        boolean biometrics = mUpdateMonitor.isUnlockWithFingerprintPossible();
+        KeyguardUpdateMonitor.StrongAuthTracker strongAuthTracker =
+                mUpdateMonitor.getStrongAuthTracker();
+        return (biometrics && strongAuthTracker.isUnlockingWithBiometricAllowed()
+                || !biometrics) && !mFpDisabled;
+    }
 
     public FODCircleView(Context context) {
         super(context);
+
+        setScaleType(ImageView.ScaleType.CENTER_INSIDE);
 
         IFingerprintInscreen daemon = getFingerprintInScreenDaemon();
         if (daemon == null) {
@@ -190,8 +256,13 @@ public class FODCircleView extends ImageView {
 
         Resources res = context.getResources();
 
-        mPaintFingerprint.setColor(res.getColor(R.color.config_fodColor));
+        mColor = res.getColor(R.color.config_fodColor);
+        mPaintFingerprint.setColor(mColor);
         mPaintFingerprint.setAntiAlias(true);
+
+        mColorBackground = res.getColor(R.color.config_fodColorBackground);
+        mPaintFingerprintBackground.setColor(mColorBackground);
+        mPaintFingerprintBackground.setAntiAlias(true);
 
         mDimIcon = res.getBoolean(R.bool.config_fodIconDim);
         mSettingsObserver = new SettingsObserver(context);
@@ -205,6 +276,7 @@ public class FODCircleView extends ImageView {
         mDreamingMaxOffset = (int) (mSize * 0.1f);
 
         mHandler = new Handler(Looper.getMainLooper());
+        mFODAnimation = new FODAnimation(context, mPositionX, mPositionY);
 
         mParams.height = mSize;
         mParams.width = mSize;
@@ -231,6 +303,7 @@ public class FODCircleView extends ImageView {
                 super.onDraw(canvas);
             }
         };
+        mPressedView.setImageResource(R.drawable.fod_icon_pressed);
 
         mWindowManager.addView(this, mParams);
 
@@ -240,6 +313,8 @@ public class FODCircleView extends ImageView {
         mUpdateMonitor = KeyguardUpdateMonitor.getInstance(context);
         mUpdateMonitor.registerCallback(mMonitorCallback);
 
+        mCanUnlockWithFp = canUnlockWithFp();
+        setAlpha(getFodAlpha());
     }
 
     @Override
@@ -291,16 +366,20 @@ public class FODCircleView extends ImageView {
 
         boolean newIsInside = (x > 0 && x < mSize) && (y > 0 && y < mSize);
 
-        if (event.getAction() == MotionEvent.ACTION_DOWN && newIsInside) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN && newIsInside && mIsShowing
+                && mCanUnlockWithFp && !mFading) {
             showCircle();
+            mFODAnimation.showFODanimation();
             return true;
-        } else if (event.getAction() == MotionEvent.ACTION_UP) {
+        } else if (event.getAction() == MotionEvent.ACTION_UP  && mCanUnlockWithFp) {
             hideCircle();
+            mFODAnimation.hideFODanimation();
             return true;
         } else if (event.getAction() == MotionEvent.ACTION_MOVE) {
             return true;
         }
 
+        mFODAnimation.hideFODanimation();
         return false;
     }
 
@@ -393,25 +472,65 @@ public class FODCircleView extends ImageView {
             return;
         }
 
-        if (mIsBouncer) {
-            // Ignore show calls when Keyguard pin screen is being shown
+        mCanUnlockWithFp = canUnlockWithFp();
+        dispatchShow();
+
+        if (mIsShowing) {
+            setAlpha(getFodAlpha());
             return;
         }
 
-        updatePosition();
+        mIsShowing = true;
 
-        dispatchShow();
+        updatePosition();
         setVisibility(View.VISIBLE);
+
+        if (!mCanUnlockWithFp && !mIsDreaming) {
+            animate().withStartAction(() -> mFading = true)
+                .alpha(getFodAlpha())
+                .setDuration(FADE_ANIM_DURATION)
+                .withEndAction(() -> {
+                    if (!mIsShowing) {
+                        setVisibility(View.GONE);
+                        setAlpha(0);
+                    } else {
+                        setAlpha(getFodAlpha());
+                    }
+                    mFading = false;
+                })
+                .start();
+        } else {
+            setAlpha(getFodAlpha());
+        }
     }
 
     public void hide() {
-        setVisibility(View.GONE);
         hideCircle();
         dispatchHide();
+
+        if (!mIsShowing) {
+            return;
+        }
+
+        mIsShowing = false;
+        animate().withStartAction(() -> mFading = true)
+            .alpha(0)
+            .setDuration(FADE_ANIM_DURATION/2)
+            .withEndAction(() -> {
+                if (mIsShowing) {
+                    setVisibility(View.VISIBLE);
+                    setAlpha(getFodAlpha());
+                } else {
+                    setVisibility(View.GONE);
+                }
+                mFading = false;
+            })
+            .start();
     }
 
-    private void updateAlpha() {
-        setAlpha(mIsDreaming ? 0.5f : 1.0f);
+    private float getFodAlpha() {
+        return (mIsDreaming ? 0.5f : 1f) *
+                (mCanUnlockWithFp ? 1f : 0.5f);
     }
 
     private void updatePosition() {
